@@ -109,12 +109,14 @@ func inventoryForWorkStatus(ws *workStatus) map[string]interface{} {
 
 func propagateMetaForWorkStatus(ws *workStatus, resolution *combinedStatusResolution) map[string]interface{} {
 	var protoLastUpdateTimestamp *timestamppb.Timestamp
-
+  var lastGeneration int64 
+  var lastGenerationApplied bool
+  var lastCurrencyUpdateTime *timestamppb.Timestamp
 	if ws.lastUpdateTime != nil {
 		protoLastUpdateTimestamp = timestamppb.New(ws.lastUpdateTime.Time)
 	}
-
 	return map[string]interface{}{
 		"lastReturnedUpdateTimestamp": protoLastUpdateTimestamp,
 	}
 }
+
