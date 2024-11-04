@@ -117,6 +117,9 @@ func propagateMetaForWorkStatus(ws *workStatus, resolution *combinedStatusResolu
 	}
 	return map[string]interface{}{
 		"lastReturnedUpdateTimestamp": protoLastUpdateTimestamp,
+		"lastGeneration": "",
+		"lastGenerationIsApplied": "",
+		"lastCurrencyUpdateTime": "",
 	}
 }
 

@@ -56,7 +56,7 @@ There are three forms of `StatusCollector`, equivalent to three forms of SQL sta
 
 ##### Plain selection
 
-When the `StatusCollector` has selection but no "GROUOP BY" and no aggregation, this is equivalent to the following form of SELECT statement. The [List of stale WECs example below](#list-of-stale-wecs) is an example of this form.
+When the `StatusCollector` has selection but no "GROUP BY" and no aggregation, this is equivalent to the following form of SELECT statement. The [List of stale WECs example below](#list-of-stale-wecs) is an example of this form.
 
 ```sql
 SELECT <selected columns>
@@ -64,9 +64,9 @@ FROM PerWEC WHERE <filter condition>
 LIMIT <limit>
 ```
 
-##### Aggregation without GROUP BY
+##### Aggregation without `GROUP BY`
 
-When there is aggregation but no plain selection and _no_ "GROUP BY", this is equivalent to the following form of SELECT statement. The [Number of WECs example below](#number-of-wecs) is an example of this form.
+When there is aggregation but no plain selection and _no_ `GROUP BY`, this is equivalent to the following form of SELECT statement. The [Number of WECs example below](#number-of-wecs) is an example of this form.
 
 ```sql
 SELECT <aggregation columns>
@@ -74,9 +74,9 @@ FROM PerWEC WHERE <filter condition>
 LIMIT <limit>
 ```
 
-##### Aggregation with GROUP BY
+##### Aggregation with `GROUP BY`
 
-When there is "GROUP BY" and aggregation but no plain selection, this is equivalent to the following form of SELECT statement. The [Histogram of Pod phase example below](#histogram-of-pod-phase) is an example of this form.
+When there is `GROUP BY` and aggregation but no plain selection, this is equivalent to the following form of SELECT statement. The [Histogram of Pod phase example below](#histogram-of-pod-phase) is an example of this form.
 
 ```sql
 SELECT <group-by column names>, <aggregation columns>
@@ -89,7 +89,7 @@ GROUP BY <group-by column names>
 LIMIT <limit>
 ```
 
-When there are N "GROUP BY" columns, the result has a row for each tuple of values (v1, v2, ... vN) such that there exists a WEC for which (v1, v2, ... vN) are the values of the "GROUP BY" columns. The result has no more rows than that.
+When there are N `GROUP BY` columns, the result has a row for each tuple of values (v1, v2, ... v`N`) such that there exists a WEC for which (v1, v2, ... v`N`) are the values of the `GROUP BY` columns. The result has no more rows than that.
 
 ## Specification of the general technique
 
@@ -108,9 +108,10 @@ A CEL expression within a `StatusCollector` can reference the following objects:
 1. `returned`: The reported state from the WEC:
    - `returned.status`: The status section of the object returned from the WEC.
 
-1. `propagation`: Metadata about the end-to-end propagation process:
-   - `propagation.lastReturnedUpdateTimestamp`: metav1.Time of last update to any returned state.
-
+    - `propagation.lastReturnedUpdateTimestamp`: `metav1.Time` of last update to any returned object state in the core. Before the first such update, this holds the zero value of `time.Time`.
+    - `propagation.lastGeneration`: the [ObjectMeta.Generation](https://github.com/kubernetes/apimachinery/blob/v0.28.14/pkg/apis/meta/v1/types.go#L174-L177) from the latest revision of the workload object to propagate to the KubeStellar(OCM) machinery at the WEC. This is not necessarily the last revision successfully applied there. For that, see `lastGenerationIsApplied`. A value of 0 means that no revision has yet successfully gotten to the machinery in the WEC.
+    - `propagation.lastGenerationIsApplied`: `bool` indicating whether `lastGeneration` has been successfully applied. The value is `false` before any attempt has been made.
+    - `propagation.lastCurrencyUpdateTime`: `metav1.Time` of the latest update to either `lastGeneration` or `lastGenerationIsApplied`. More precisely, it is the time when the core became informed of the update. Before the first such update, this holds the zero value of `time.Time`.
 ## Examples of using the general technique
 
 ### Number of WECs
