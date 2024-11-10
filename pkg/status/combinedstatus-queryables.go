@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/kubestellar/kubestellar/pkg/util"
+  "time"
 )
 
 // getCombinedContentMap returns a map of content for the given workstatus.
@@ -108,10 +109,10 @@ func inventoryForWorkStatus(ws *workStatus) map[string]interface{} {
 }
 
 func propagateMetaForWorkStatus(ws *workStatus, resolution *combinedStatusResolution) map[string]interface{} {
-	var protoLastUpdateTimestamp *timestamppb.Timestamp
+	var protoLastUpdateTimestamp *timestamppb.Timestamp = timestamppb.New(time.Time{}) 
   var lastGeneration int64 
   var lastGenerationApplied bool
-  var lastCurrencyUpdateTime *timestamppb.Timestamp
+  var lastCurrencyUpdateTime *timestamppb.Timestamp = timestamppb.New(time.Time{})
 	if ws.lastUpdateTime != nil {
 		protoLastUpdateTimestamp = timestamppb.New(ws.lastUpdateTime.Time)
 	}
