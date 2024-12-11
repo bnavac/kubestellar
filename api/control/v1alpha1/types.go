@@ -104,15 +104,6 @@ type BindingPolicySpec struct {
 	// the `createOnly` bits are ORed together, and the StatusCollector reference
 	// sets are combined by union.
 	Downsync []DownsyncPolicyClause `json:"downsync,omitempty"`
-
-	// WantSingletonReportedState means that for workload objects that are distributed --- taking
-	// all BindingPolicies into account --- to exactly one WEC, the object's reported state
-	// from the WEC should be written to the object in its WDS.
-	// If any of the workload objects are distributed to more or less than 1 WEC then
-	// the `.status.errors` of this policy will report that discrepancy for
-	// some of them.
-	// +optional
-	WantSingletonReportedState bool `json:"wantSingletonReportedState,omitempty"`
 }
 
 const (
@@ -128,28 +119,52 @@ const (
 
 // DownsyncPolicyClause identifies some objects (by a predicate)
 // and modulates how they are downsynced.
-// One modulation is specifying a set of StatusCollectors to apply
-// to returned status.
-// The other modulation is specifying whether the propagation from WDS to WEC
-// involves continual maintenance of the spec or the object is only created
-// if it is absent.
 type DownsyncPolicyClause struct {
 	DownsyncObjectTest `json:",inline"`
+	DownsyncModulation `json:",inline"`
+}
 
+// DownsyncModulation is about variations on downsync behavior.
+type DownsyncModulation struct {
 	// `createOnly` indicates that in a given WEC, the object is not to be updated
 	// if it already exists.
 	// +optional
 	CreateOnly bool `json:"createOnly,omitempty"`
 
-	// `statusCollection` holds the rules for collecting status from the WECs.
+	// `statusCollectors` is a list of references of StatusCollectors to apply.
 	// +optional
-	StatusCollection *StatusCollection `json:"statusCollection,omitempty"`
-}
-
-// StatusCollection holds the rules for collecting status from the WECs.
-type StatusCollection struct {
-	// `statusCollectors` is a list of StatusCollectors name references to be applied.
 	StatusCollectors []string `json:"statusCollectors,omitempty"`
+
+	// WantSingletonReportedState, in short, indicates an expectation
+	// that the matching workload objects are distributed to exactly one WEC
+	// and requests that the `.status` of such objects propagate from the WEC
+	// to the WDS.
+	//
+	// For a precise description, start with a couple of definitions.
+	// For a given workload object, _singleton status return is requested_
+	// if and only if there exists at least one BindingPolicy or Binding
+	// that has `wantSingletonReportedState==true` in a clause that
+	// matches/references the workload object.
+	//
+	// The _qualified WEC set_ of a workload object is the set of WECs that are
+	// associated with that workload object by at least one BindingPolicy or Binding
+	// that has `wantSingletonReportedState==true` in a clause that
+	// matches/references the workload object.
+	//
+	// For a given workload object, while singleton status return is requested,
+	// KubeStellar maintains a label on the object whose name (key) is
+	// `kubestellar.io/executing-count` and whose value is a string representation
+	// of the size of the qualified WEC set of that object.
+	// While singleton status return is _not_ requested, KubeStellar suppresses
+	// the existence of a label with that name (key).
+	// While singleton status return is requested _and_ the size of the qualified
+	// WEC set is 1, KubeStellar propagates the object's `.status` from that WEC
+	// to the `.status` section of the object in the WDS.
+	// While either singleton status return is NOT requested or the size of the
+	// qualified WEC set is NOT 1, there is nothing in the `.status` of the object
+	// in the WDS that was propagated there from a WEC by KubeStellar.
+	// +optional
+	WantSingletonReportedState bool `json:"wantSingletonReportedState,omitempty"`
 }
 
 // DownsyncObjectTest is a set of criteria that characterize matching objects.
@@ -291,18 +306,10 @@ type DownsyncObjectClauses struct {
 }
 
 // NamespaceScopeDownsyncClause references a specific namespace-scoped object to downsync,
-// and the status collectors that should be applied to it.
+// and the downsync modulation to apply.
 type NamespaceScopeDownsyncClause struct {
 	NamespaceScopeDownsyncObject `json:",inline"`
-
-	// `createOnly` indicates that in a given WEC, the object is not to be updated
-	// if it already exists.
-	// +optional
-	CreateOnly bool `json:"createOnly,omitempty"`
-
-	// `statusCollection` holds the rules of status collection for the object.
-	// +optional
-	StatusCollection *StatusCollection `json:"statusCollection,omitempty"`
+	DownsyncModulation           `json:",inline"`
 }
 
 // NamespaceScopeDownsyncObject references a specific namespace-scoped object to downsync,
@@ -319,18 +326,10 @@ type NamespaceScopeDownsyncObject struct {
 }
 
 // ClusterScopeDownsyncClause references a specific cluster-scoped object to downsync,
-// and the status collectors that should be applied to it.
+// and the downsync modulation to apply.
 type ClusterScopeDownsyncClause struct {
 	ClusterScopeDownsyncObject `json:",inline"`
-
-	// `createOnly` indicates that in a given WEC, the object is not to be updated
-	// if it already exists.
-	// +optional
-	CreateOnly bool `json:"createOnly,omitempty"`
-
-	// `statusCollection` holds the rules of status collection for the object.
-	// +optional
-	StatusCollection *StatusCollection `json:"statusCollection,omitempty"`
+	DownsyncModulation         `json:",inline"`
 }
 
 // ClusterScopeDownsyncObject references a specific cluster-scoped object to downsync,
@@ -455,7 +454,7 @@ const (
 // and https://kubernetes.io/docs/reference/using-api/cel/ about CEL's uses in Kubernetes.
 // The expression will be type-checked against the schema for the object type at hand,
 // using the Kubernetes library code for converting an OpenAPI schema to a CEL type
-// (e.g., https://github.com/kubernetes/apiserver/blob/v0.28.2/pkg/cel/common/schemas.go#L40).
+// (e.g., https://github.com/kubernetes/apiserver/blob/v0.29.10/pkg/cel/common/schemas.go#L40).
 // Parsing errors are posted to the status.Errors of the StatusCollector.
 // Type checking errors are posted to the status.Errors of the Binding and BindingPolicy.
 type Expression string
@@ -534,7 +533,7 @@ type StatusCollectorList struct {
 // +kubebuilder:printcolumn:name="SUBJECT_RSC",type="string",JSONPath=".metadata.labels['status\\.kubestellar\\.io/resource']"
 // +kubebuilder:printcolumn:name="SUBJECT_NS",type="string",JSONPath=".metadata.labels['status\\.kubestellar\\.io/namespace']"
 // +kubebuilder:printcolumn:name="SUBJECT_NAME",type="string",JSONPath=".metadata.labels['status\\.kubestellar\\.io/name']"
-// +kubebuilder:printcolumn:name="BINDINGPOLICY",type="string",JSONPath=".metadata.labels['status\\.kubestellar\\.io/policy']"
+// +kubebuilder:printcolumn:name="BINDINGPOLICY",type="string",JSONPath=".metadata.labels['status\\.kubestellar\\.io/binding-policy']"
 type CombinedStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

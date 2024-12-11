@@ -123,7 +123,7 @@ is_installed_kflex() {
         'kflex version | head -1' \
         'kflex version | head -1' \
         'https://github.com/kubestellar/kubeflex' \
-        'Kubeflex version: v0.7.1'
+        'Kubeflex version: v0.7.2'
 }
 
 is_installed_kind() {
@@ -135,6 +135,14 @@ is_installed_kind() {
         'kind v0.20'
 }
 
+is_installed_k3d() {
+    is_installed 'k3d' \
+        'k3d' \
+        'k3d --version' \
+        'k3d --version' \
+        'https://k3d.io/#installation' \
+        'k3d version v5.7.4'
+}
 is_installed_ko() {
     is_installed 'KO' \
         'ko' \
@@ -183,12 +191,12 @@ is_installed_yq() {
 
 
 # Global constants
-PROGRAMS="@(argo|brew|docker|go|helm|jq|kflex|kind|ko|kubectl|make|ocm|yq)"
+PROGRAMS="@(argo|brew|docker|go|helm|jq|kflex|kind|ko|kubectl|make|ocm|yq|k3d)"
 
 # Global parameters
 assert="false"  # true => exit on missing program
 list="false"    # true => display the list of programs and exit
-verbose="false" # true => display verbose informations about the programs: version, path, install info
+verbose="false" # true => display verbose information about the programs: version, path, install info
 programs=()
 
 # Parse command line arguments
@@ -241,6 +249,7 @@ if [ ${#programs[@]} -eq 0 ]; then
     is_installed_helm
     echo "Checking additional pre-requisites for running the examples:"
     is_installed_kind
+    is_installed_k3d
     is_installed_argo
     echo "Checking pre-requisites for building KubeStellar:"
     is_installed_make

@@ -35,6 +35,7 @@ find * .github/workflows \( -name "*.svg" -prune \) -or \( -path "*venv" -prune 
 Between each release of [ks/OSA](https://github.com/kubestellar/ocm-status-addon) and the next release of ks/ks, update the references to the ocm-status-addon release in the following files.
 
 - `core-chart/values.yaml`
+- `monitoring/README.md`
 
 ### Making a new kubestellar release
 
@@ -45,6 +46,10 @@ Making a new kubestellar release requires a contributor to do the following thin
 - Edit `docs/mkdocs.yml` and update the definition of `ks_latest_release` to `$version` (e.g., `'0.23.0-rc42'`). If this is a regular release then also update the definition of `ks_latest_regular_release`.
 
 - Update the version in the core chart defaults, `core-chart/values.yaml`.
+
+- Update the links in scripts/create-kubestellar-demo-env.sh to point to the latest release.
+
+- Update the version in `scripts/create-kubestellar-demo-env.sh`. Note: merging this change will cause the script to be broken until the release is made.
 
 - Until we have our first stable release, edit the old docs README(`oldocs/README.md`, section "latest-stable-release") where it wishes it could cite a stable release but instead cites the latest release, to refer to the coming release.
 

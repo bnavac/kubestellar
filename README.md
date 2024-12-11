@@ -11,6 +11,9 @@
 
 [![](https://img.shields.io/badge/first--timers--only-friendly-blue.svg?style=flat-square)](https://www.firsttimersonly.com/)&nbsp;&nbsp;&nbsp;
 [![](https://github.com/kubestellar/kubestellar/actions/workflows/broken-links-crawler.yml/badge.svg)](https://github.com/kubestellar/kubestellar/actions/workflows/broken-links-crawler.yml)
+[![](https://www.bestpractices.dev/projects/8266/badge)](https://www.bestpractices.dev/projects/8266)
+[![](https://api.scorecard.dev/projects/github.com/kubestellar/kubestellar/badge)](https://scorecard.dev/viewer/?uri=github.com/kubestellar/kubestellar)
+[![](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/kubestellar)](https://artifacthub.io/packages/search?repo=kubestellar)
 <a href="https://kubernetes.slack.com/archives/C058SUSL5AA"> 
     <img alt="Join Slack" src="https://img.shields.io/badge/KubeStellar-Join%20Slack-blue?logo=slack">
   </a>
@@ -46,6 +49,9 @@ For usage, architecture, and other documentation, see [the website](https://kube
 We ❤️ our contributors! If you're interested in helping us out, please head over to our [Contributing](https://docs.kubestellar.io/stable/Contribution%20guidelines/CONTRIBUTING/) guide and be sure to look at `main` or the release of interest to you.
 
 This community has a [Code of Conduct](./CODE_OF_CONDUCT.md). Please make sure to follow it.
+
+## Our Roadmap
+Have a look at what we are working on next, see our [Roadmap](docs/content/direct/roadmap.md) 
 
 ## Getting in touch
 
@@ -120,5 +126,6 @@ Thanks go to these wonderful people:
 </td>
 <br>We are a Cloud Native Computing Foundation sandbox project.
 <br>Kubernetes and the Kubernetes logo are registered trademarks of The Linux Foundation® (TLF).
+<br>The Linux Foundation has registered trademarks and uses trademarks. For a list of trademarks of The Linux Foundation, please see our <a href="https://www.linuxfoundation.org/legal/trademark-usage">Trademark Usage page</a>.
 <br>© 2022-2024. The KubeStellar Authors.
 <!--readme-for-root-end-->

@@ -3,7 +3,6 @@
 Note on terminology: the general idea that we wish to address is returning reported state about a workload object to its WDS. At the current level of development, we equate reported state with the status section of an object --- while anticipating a more general treatment in the future.
 
 There are two methods of returning reported state: a general one and a special case. The general method returns reported state from any number of WECs. The special case applies when the number of WECs is exactly 1, and returns the reported state into the original object in the WDS.
-It may make sense to expand the latter into a general feature in the future, accommodating features such as scheduling.
 
 ## Introduction to the General Technique
 
@@ -93,34 +92,59 @@ When there are N `GROUP BY` columns, the result has a row for each tuple of valu
 
 ## Specification of the general technique
 
-See `types.go`.
+In `types.go` see (a) `StatusCollector`, (b) the references to those
+from `DownsyncPolicyClause`, `NamespaceScopeDownsyncClause`, and
+`ClusterScopeDownsyncClause`, and (c) `CombinedStatus`.
 
 ### Queryable Objects
 
 A CEL expression within a `StatusCollector` can reference the following objects:
 
 1. `inventory`: The inventory object for the workload object:
-   - `inventory.name`: The name of the inventory object.
+    - `inventory.name`: The name of the inventory object.
 
 1. `obj`: The workload object from the WDS:
-   - All fields of the workload object except the status subresource.
+    - All fields of the workload object except the status subresource.
 
 1. `returned`: The reported state from the WEC:
-   - `returned.status`: The status section of the object returned from the WEC.
+    - `returned.status`: The status section of the object returned from the WEC.
 
 1. `propagation`: Metadata about the end-to-end propagation process:
-   - `propagation.lastReturnedUpdateTimestamp`: metav1.Time of last update to any returned state.
+    - `propagation.lastReturnedUpdateTimestamp`: metav1.Time of last update to any returned state.
 
 ## Examples of using the general technique
 
 ### Number of WECs
 
-The `StatusCollectorSpec` would look like the following.
+The `StatusCollector` would look like the following.
 
 ```yaml
-combinedFields:
-   - name: count
-     type: COUNT
+apiVersion: control.kubestellar.io/v1alpha1
+kind: StatusCollector
+metadata:
+  name: count-wecs
+spec:
+  combinedFields:
+     - name: count
+       type: COUNT
+  limit: 10
+```
+
+To specify using that, the `BindingSpec` would reference it from the `StatusCollection` in the relevant `DownsyncPolicyClause`(s). Following is an example.
+
+```yaml
+apiVersion: control.kubestellar.io/v1alpha1
+kind: BindingPolicy
+metadata:
+  name: example-binding-policy
+spec:
+  clusterSelectors:
+  - matchLabels: {"location-group":"edge"}
+  downsync:
+  - objectSelectors:
+    - matchLabels: {"app.kubernetes.io/name":"nginx"}
+    statusCollection:
+      statusCollectors: [ count-wecs ]
 ```
 
 The analogous SQL statement would look something like the following.
@@ -131,17 +155,45 @@ SELECT COUNT(*) AS count FROM PerWEC LIMIT <something>
 
 The table resulting from this would have one column and one row. The one value in this table would be the number of WECs.
 
-### Histogram of Pod phase
-
-The `StatusCollectorSpec` would look like the following.
+Following is an example of a consequent `CombinedStatus` object.
 
 ```yaml
-groupBy:
-   - name: phase
-     def: returned.status.phase
-combinedFields:
-   - name: count
-     type: COUNT
+apiVersion: control.kubestellar.io/v1alpha1
+kind: CombinedStatus
+metadata:
+  creationTimestamp: "2024-11-07T20:15:27Z"
+  generation: 1
+  labels:
+    status.kubestellar.io/api-group: apps
+    status.kubestellar.io/binding-policy: nginx-bindingpolicy
+    status.kubestellar.io/name: nginx-deployment
+    status.kubestellar.io/namespace: nginx
+    status.kubestellar.io/resource: deployments
+  name: 0990056b-ccbc-4c46-b0fe-366ef3a2de5e.332d2c17-7b55-44f6-9a6e-21445523c808
+  namespace: nginx
+  resourceVersion: "604"
+  uid: cc167004-073e-4a20-9857-449f692e9643
+results:
+- columnNames:
+  - count
+  name: count-wecs
+  rows:
+  - columns:
+    - float: "2"
+      type: Number
+```
+
+### Histogram of Pod phase
+
+The `spec` of the `StatusCollector` would look like the following.
+
+```yaml
+  groupBy:
+     - name: phase
+       def: returned.status.phase
+  combinedFields:
+     - name: count
+       type: COUNT
 ```
 
 The analogous SQL statement would look something like the following.
@@ -158,40 +210,91 @@ The result would have two columns, holding a phase value and a count. The number
 
 ### Histogram of number of available replicas of a Deployment
 
-This reports, for each number of available replicas, how many WECs have that number.
+This reports, for each number of available replicas, how many WECs have that number. The `spec` of the `CombinedStatus` would look like the following.
 
 ```yaml
-groupBy:
-   - name: numAvailable
-     def: returned.status.availableReplicas
-combinedFields:
-   - name: count
-     type: COUNT
+  groupBy:
+     - name: numAvailable
+       def: returned.status.availableReplicas
+  combinedFields:
+     - name: count
+       type: COUNT
 ```
 
 ### List of WECs where the Deployment is not as available as desired
 
+The `spec` of the `CombinedStatus` would look like the following.
+
 ```yaml
-filter: "obj.spec.replicas != returned.status.availableReplicas"
-select:
-   - name: wec
-     def: inventory.name
+  filter: "obj.spec.replicas != returned.status.availableReplicas"
+  select:
+     - name: wec
+       def: inventory.name
 ```
 
 ### Full status from each WEC with information retrieval time
 
+The `spec` of the `CombinedStatus` would look like the following.
 This produces a listing of object status paired with inventory object name.
 
 ```yaml
-select:
-   - name: wec
-     def: inventory.name
-   - name: status
-     def: returned.status
-   - name: retrievalTime
-     def: propagation.lastReturnedUpdateTimestamp
+  select:
+     - name: wec
+       def: inventory.name
+     - name: status
+       def: returned.status
+     - name: retrievalTime
+       def: propagation.lastReturnedUpdateTimestamp
 ```
 
 ## Special case for 1 WEC
 
-This proposal refines the meaning of `BindingPolicySpec.WantSingletonReportedState` to request the special case when it applies.
+When a workload object is distributed from a WDS to exactly one WEC,
+the reported state from that WEC can be returned into the copy of the
+workload object in the WDS. The design of most kinds of Kubernetes API
+object implicitly assumes that the object exists and has its defined
+effect in only one cluster. That is why it makes sense to return the
+reported state from the WEC to the WDS only when the object goes to
+exactly one WEC.
+
+As mentioned above, currently KubeStellar equates "reported state"
+with the `.status` section of the API object.
+
+The user has to specifically request this last step of `.status`
+propagation. This is done in an optional boolean field, named
+`wantSingletonReportedState`, in a `DownsyncPolicyClause` in a
+`BindingPolicy`. This is one of the three kinds of downsync
+modulations that a policy clause can associate with the matching
+workload objects. In a `Binding`, this same optional boolean field
+appears in `NamespaceScopeDownsyncClause` and
+`ClusterScopeDownsyncClause`. If multiple policy clauses in a
+`BindingPolicy` match a given workload object, the settings for
+`.wantSingletonReportedState` are combined by OR to get the one
+boolean value that appears with the reference to the object in the
+corresponding `Binding`. If multiple `Binding` objects in one WDS
+reference a given workload object, there is another level of
+multiplicity to consider. Read on.
+
+For a given workload object and WDS, we say that "singleton status
+return is requested" if and only if there exists at least one
+BindingPolicy or Binding that has `wantSingletonReportedState==true`
+in a clause that matches/references the workload object.
+
+The "qualified WEC set" of a given workload object in a given WDS is
+the set of WECs that are associated with that workload object by at
+least one BindingPolicy or Binding that has
+`wantSingletonReportedState==true` in a clause that matches/references
+the workload object.
+
+For a given workload object in a given WDS, while singleton status
+return is requested, KubeStellar maintains a label on the object whose
+name (key) is `kubestellar.io/executing-count` and whose value is a
+string representation of the size of the qualified WEC set of that
+object.  While singleton status return is _not_ requested, KubeStellar
+suppresses the existence of a label with that name (key).  While
+singleton status return is requested _and_ the size of the qualified
+WEC set is 1, KubeStellar propagates the object's `.status` from that
+WEC to the `.status` section of the object in the WDS.  While either
+singleton status return is NOT requested or the size of the qualified
+WEC set is NOT 1, there is nothing in the `.status` of the object in
+the WDS that was propagated there from a WEC by KubeStellar.
